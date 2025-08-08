@@ -28,6 +28,12 @@ interface HistoryItem {
   timestamp: Date;
 }
 
+interface DailyData {
+  date: string;
+  takeProfitHistory: HistoryItem[];
+  stopLossHistory: HistoryItem[];
+}
+
 interface EditState {
   id: string | null;
   type: "takeProfit" | "stopLoss" | null;
@@ -38,13 +44,47 @@ export default function TradingInterface() {
   const [date, setDate] = useState<Date>(new Date("2025-08-06"));
   const [takeProfitInput, setTakeProfitInput] = useState("");
   const [stopLossInput, setStopLossInput] = useState("");
-  const [takeProfitHistory, setTakeProfitHistory] = useState<HistoryItem[]>([]);
-  const [stopLossHistory, setStopLossHistory] = useState<HistoryItem[]>([]);
+  const [allDailyData, setAllDailyData] = useState<{
+    [key: string]: DailyData;
+  }>({});
   const [editState, setEditState] = useState<EditState>({
     id: null,
     type: null,
     value: "",
   });
+
+  // Helper function to get date string key
+  const getDateKey = (selectedDate: Date) => {
+    return format(selectedDate, "yyyy-MM-dd");
+  };
+
+  // Get current day's data
+  const getCurrentDayData = (): DailyData => {
+    const dateKey = getDateKey(date);
+    return (
+      allDailyData[dateKey] || {
+        date: dateKey,
+        takeProfitHistory: [],
+        stopLossHistory: [],
+      }
+    );
+  };
+
+  // Update data for current day
+  const updateCurrentDayData = (updates: Partial<DailyData>) => {
+    const dateKey = getDateKey(date);
+    setAllDailyData((prev) => ({
+      ...prev,
+      [dateKey]: {
+        ...getCurrentDayData(),
+        ...updates,
+      },
+    }));
+  };
+
+  // Get current day's history arrays
+  const takeProfitHistory = getCurrentDayData().takeProfitHistory;
+  const stopLossHistory = getCurrentDayData().stopLossHistory;
 
   // Load data from localStorage on component mount
   useEffect(() => {
@@ -52,19 +92,47 @@ export default function TradingInterface() {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        setDate(new Date(parsed.date));
-        setTakeProfitHistory(
-          parsed.takeProfitHistory.map((item: any) => ({
-            ...item,
-            timestamp: new Date(item.timestamp),
-          }))
-        );
-        setStopLossHistory(
-          parsed.stopLossHistory.map((item: any) => ({
-            ...item,
-            timestamp: new Date(item.timestamp),
-          }))
-        );
+        // Convert old format to new format if needed
+        if (parsed.takeProfitHistory && parsed.stopLossHistory) {
+          // Old format - convert to new format
+          const dateKey = format(new Date(parsed.date), "yyyy-MM-dd");
+          setAllDailyData({
+            [dateKey]: {
+              date: dateKey,
+              takeProfitHistory: parsed.takeProfitHistory.map((item: any) => ({
+                ...item,
+                timestamp: new Date(item.timestamp),
+              })),
+              stopLossHistory: parsed.stopLossHistory.map((item: any) => ({
+                ...item,
+                timestamp: new Date(item.timestamp),
+              })),
+            },
+          });
+          setDate(new Date(parsed.date));
+        } else {
+          // New format
+          const convertedData: { [key: string]: DailyData } = {};
+          Object.entries(parsed.allDailyData || {}).forEach(
+            ([dateKey, dayData]: [string, any]) => {
+              convertedData[dateKey] = {
+                ...dayData,
+                takeProfitHistory: dayData.takeProfitHistory.map(
+                  (item: any) => ({
+                    ...item,
+                    timestamp: new Date(item.timestamp),
+                  })
+                ),
+                stopLossHistory: dayData.stopLossHistory.map((item: any) => ({
+                  ...item,
+                  timestamp: new Date(item.timestamp),
+                })),
+              };
+            }
+          );
+          setAllDailyData(convertedData);
+          setDate(new Date(parsed.currentDate));
+        }
       } catch (error) {
         console.error("Error loading data from localStorage:", error);
       }
@@ -74,12 +142,11 @@ export default function TradingInterface() {
   // Save data to localStorage whenever state changes
   useEffect(() => {
     const dataToSave = {
-      date: date.toISOString(),
-      takeProfitHistory,
-      stopLossHistory,
+      currentDate: date.toISOString(),
+      allDailyData,
     };
     localStorage.setItem("tradingData", JSON.stringify(dataToSave));
-  }, [date, takeProfitHistory, stopLossHistory]);
+  }, [date, allDailyData]);
 
   const takeProfitTotal = takeProfitHistory.reduce(
     (sum, item) => sum + item.percentage,
@@ -99,7 +166,10 @@ export default function TradingInterface() {
         percentage,
         timestamp: new Date(),
       };
-      setTakeProfitHistory((prev) => [...prev, newItem]);
+      const currentData = getCurrentDayData();
+      updateCurrentDayData({
+        takeProfitHistory: [...currentData.takeProfitHistory, newItem],
+      });
       setTakeProfitInput("");
     }
   };
@@ -112,24 +182,40 @@ export default function TradingInterface() {
         percentage,
         timestamp: new Date(),
       };
-      setStopLossHistory((prev) => [...prev, newItem]);
+      const currentData = getCurrentDayData();
+      updateCurrentDayData({
+        stopLossHistory: [...currentData.stopLossHistory, newItem],
+      });
       setStopLossInput("");
     }
   };
 
   const removeHistoryItem = (type: "takeProfit" | "stopLoss", id: string) => {
+    const currentData = getCurrentDayData();
     if (type === "takeProfit") {
-      setTakeProfitHistory((prev) => prev.filter((item) => item.id !== id));
+      updateCurrentDayData({
+        takeProfitHistory: currentData.takeProfitHistory.filter(
+          (item) => item.id !== id
+        ),
+      });
     } else {
-      setStopLossHistory((prev) => prev.filter((item) => item.id !== id));
+      updateCurrentDayData({
+        stopLossHistory: currentData.stopLossHistory.filter(
+          (item) => item.id !== id
+        ),
+      });
     }
   };
 
   const clearHistory = (type: "takeProfit" | "stopLoss") => {
     if (type === "takeProfit") {
-      setTakeProfitHistory([]);
+      updateCurrentDayData({
+        takeProfitHistory: [],
+      });
     } else {
-      setStopLossHistory([]);
+      updateCurrentDayData({
+        stopLossHistory: [],
+      });
     }
   };
 
@@ -149,22 +235,23 @@ export default function TradingInterface() {
     if (editState.id && editState.type) {
       const newValue = parseFloat(editState.value);
       if (!isNaN(newValue) && newValue > 0) {
+        const currentData = getCurrentDayData();
         if (editState.type === "takeProfit") {
-          setTakeProfitHistory((prev) =>
-            prev.map((item) =>
+          updateCurrentDayData({
+            takeProfitHistory: currentData.takeProfitHistory.map((item) =>
               item.id === editState.id
                 ? { ...item, percentage: newValue }
                 : item
-            )
-          );
+            ),
+          });
         } else {
-          setStopLossHistory((prev) =>
-            prev.map((item) =>
+          updateCurrentDayData({
+            stopLossHistory: currentData.stopLossHistory.map((item) =>
               item.id === editState.id
                 ? { ...item, percentage: newValue }
                 : item
-            )
-          );
+            ),
+          });
         }
       }
     }
@@ -182,8 +269,7 @@ export default function TradingInterface() {
       )
     ) {
       localStorage.removeItem("tradingData");
-      setTakeProfitHistory([]);
-      setStopLossHistory([]);
+      setAllDailyData({});
       setDate(new Date("2025-08-06"));
     }
   };
