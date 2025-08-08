@@ -18,6 +18,8 @@ import {
   Edit,
   Save,
   X,
+  BarChart3,
+  Calendar as CalendarLucide,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -32,6 +34,24 @@ interface DailyData {
   date: string;
   takeProfitHistory: HistoryItem[];
   stopLossHistory: HistoryItem[];
+}
+
+interface DailySummary {
+  date: string;
+  profit: number;
+  isProfit: boolean;
+  takeProfit: number;
+  stopLoss: number;
+}
+
+interface WeeklySummary {
+  weekStart: string;
+  weekEnd: string;
+  totalProfit: number;
+  profitDays: number;
+  lossDays: number;
+  totalDays: number;
+  dailySummaries: DailySummary[];
 }
 
 interface EditState {
@@ -52,6 +72,7 @@ export default function TradingInterface() {
     type: null,
     value: "",
   });
+  const [showSummary, setShowSummary] = useState(false);
 
   // Helper function to get date string key
   const getDateKey = (selectedDate: Date) => {
@@ -157,6 +178,84 @@ export default function TradingInterface() {
     0
   );
   const profitTotal = takeProfitTotal - stopLossTotal;
+
+  // Calculate daily summaries
+  const getDailySummaries = (): DailySummary[] => {
+    return Object.values(allDailyData)
+      .map((dayData) => {
+        const takeProfit = dayData.takeProfitHistory.reduce(
+          (sum, item) => sum + item.percentage,
+          0
+        );
+        const stopLoss = dayData.stopLossHistory.reduce(
+          (sum, item) => sum + item.percentage,
+          0
+        );
+        const profit = takeProfit - stopLoss;
+
+        return {
+          date: dayData.date,
+          profit,
+          isProfit: profit > 0,
+          takeProfit,
+          stopLoss,
+        };
+      })
+      .filter((summary) => summary.takeProfit > 0 || summary.stopLoss > 0) // Only days with activity
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Most recent first
+  };
+
+  // Calculate weekly summaries
+  const getWeeklySummaries = (): WeeklySummary[] => {
+    const dailySummaries = getDailySummaries();
+    const weeklyMap = new Map<string, DailySummary[]>();
+
+    // Group by week
+    dailySummaries.forEach((summary) => {
+      const date = new Date(summary.date);
+      const startOfWeek = new Date(date);
+      startOfWeek.setDate(date.getDate() - date.getDay()); // Sunday as start of week
+      const weekKey = format(startOfWeek, "yyyy-MM-dd");
+
+      if (!weeklyMap.has(weekKey)) {
+        weeklyMap.set(weekKey, []);
+      }
+      weeklyMap.get(weekKey)!.push(summary);
+    });
+
+    // Create weekly summaries
+    return Array.from(weeklyMap.entries())
+      .map(([weekStart, dailySummaries]) => {
+        const totalProfit = dailySummaries.reduce(
+          (sum, day) => sum + day.profit,
+          0
+        );
+        const profitDays = dailySummaries.filter((day) => day.isProfit).length;
+        const lossDays = dailySummaries.filter(
+          (day) => !day.isProfit && day.profit !== 0
+        ).length;
+
+        const weekStartDate = new Date(weekStart);
+        const weekEndDate = new Date(weekStartDate);
+        weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+        return {
+          weekStart,
+          weekEnd: format(weekEndDate, "yyyy-MM-dd"),
+          totalProfit,
+          profitDays,
+          lossDays,
+          totalDays: dailySummaries.length,
+          dailySummaries: dailySummaries.sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          ),
+        };
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.weekStart).getTime() - new Date(a.weekStart).getTime()
+      ); // Most recent first
+  };
 
   const addTakeProfit = () => {
     const percentage = parseFloat(takeProfitInput);
@@ -651,18 +750,190 @@ export default function TradingInterface() {
                 </div>
               </div>
               {(takeProfitHistory.length > 0 || stopLossHistory.length > 0) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearAllData}
-                  className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
-                >
-                  Limpiar todos los datos
-                </Button>
+                <div className="flex space-x-2 justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSummary(!showSummary)}
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    {showSummary ? "Ocultar Resúmenes" : "Ver Resúmenes"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllData}
+                    className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
+                  >
+                    Limpiar todos los datos
+                  </Button>
+                </div>
               )}
             </div>
           </CardContent>
         </Card>
+
+        {/* Summaries Section */}
+        {showSummary && (
+          <div className="space-y-6">
+            {/* Weekly Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                  <CalendarLucide className="w-5 h-5 mr-2" />
+                  Resumen Semanal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {getWeeklySummaries().length === 0 ? (
+                    <p className="text-slate-500 dark:text-slate-400 text-center py-8">
+                      No hay datos de trading para mostrar
+                    </p>
+                  ) : (
+                    getWeeklySummaries().map((weekSummary, index) => (
+                      <div
+                        key={weekSummary.weekStart}
+                        className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50"
+                      >
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="font-semibold text-slate-700 dark:text-slate-300">
+                            Semana{" "}
+                            {format(new Date(weekSummary.weekStart), "dd/MM", {
+                              locale: es,
+                            })}{" "}
+                            -{" "}
+                            {format(
+                              new Date(weekSummary.weekEnd),
+                              "dd/MM/yyyy",
+                              { locale: es }
+                            )}
+                          </h4>
+                          <div
+                            className={`font-bold text-lg ${
+                              weekSummary.totalProfit >= 0
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}
+                          >
+                            {weekSummary.totalProfit >= 0 ? "+" : ""}
+                            {weekSummary.totalProfit.toFixed(2)}%
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-4 text-sm mb-3">
+                          <div className="text-center">
+                            <p className="text-slate-600 dark:text-slate-400">
+                              Total Días
+                            </p>
+                            <p className="font-bold text-slate-800 dark:text-slate-200">
+                              {weekSummary.totalDays}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-slate-600 dark:text-slate-400">
+                              Días Ganadores
+                            </p>
+                            <p className="font-bold text-green-600 dark:text-green-400">
+                              {weekSummary.profitDays}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-slate-600 dark:text-slate-400">
+                              Días Perdedores
+                            </p>
+                            <p className="font-bold text-red-600 dark:text-red-400">
+                              {weekSummary.lossDays}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-slate-600 dark:text-slate-400">
+                              Tasa de Éxito
+                            </p>
+                            <p className="font-bold text-blue-600 dark:text-blue-400">
+                              {weekSummary.totalDays > 0
+                                ? (
+                                    (weekSummary.profitDays /
+                                      weekSummary.totalDays) *
+                                    100
+                                  ).toFixed(1)
+                                : 0}
+                              %
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Daily Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                  <BarChart3 className="w-5 h-5 mr-2" />
+                  Resumen Diario
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {getDailySummaries().length === 0 ? (
+                    <p className="text-slate-500 dark:text-slate-400 text-center py-8">
+                      No hay datos de trading para mostrar
+                    </p>
+                  ) : (
+                    getDailySummaries().map((daySummary) => (
+                      <div
+                        key={daySummary.date}
+                        className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div
+                            className={`w-3 h-3 rounded-full ${
+                              daySummary.isProfit
+                                ? "bg-green-500"
+                                : daySummary.profit === 0
+                                ? "bg-gray-400"
+                                : "bg-red-500"
+                            }`}
+                          ></div>
+                          <div>
+                            <p className="font-medium text-slate-800 dark:text-slate-200">
+                              {format(
+                                new Date(daySummary.date),
+                                "EEEE, dd 'de' MMMM",
+                                { locale: es }
+                              )}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              TP: +{daySummary.takeProfit.toFixed(2)}% | SL: -
+                              {daySummary.stopLoss.toFixed(2)}%
+                            </p>
+                          </div>
+                        </div>
+                        <div
+                          className={`font-bold text-lg ${
+                            daySummary.profit > 0
+                              ? "text-green-600 dark:text-green-400"
+                              : daySummary.profit === 0
+                              ? "text-gray-600 dark:text-gray-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {daySummary.profit > 0 ? "+" : ""}
+                          {daySummary.profit.toFixed(2)}%
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
