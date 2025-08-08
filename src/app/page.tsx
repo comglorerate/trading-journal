@@ -1,158 +1,192 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Plus, TrendingUp, TrendingDown, Edit, Save, X } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  CalendarIcon,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  Edit,
+  Save,
+  X,
+} from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface HistoryItem {
-  id: string
-  percentage: number
-  timestamp: Date
+  id: string;
+  percentage: number;
+  timestamp: Date;
 }
 
 interface EditState {
-  id: string | null
-  type: 'takeProfit' | 'stopLoss' | null
-  value: string
+  id: string | null;
+  type: "takeProfit" | "stopLoss" | null;
+  value: string;
 }
 
 export default function TradingInterface() {
-  const [date, setDate] = useState<Date>(new Date("2025-08-06"))
-  const [takeProfitInput, setTakeProfitInput] = useState("")
-  const [stopLossInput, setStopLossInput] = useState("")
-  const [takeProfitHistory, setTakeProfitHistory] = useState<HistoryItem[]>([])
-  const [stopLossHistory, setStopLossHistory] = useState<HistoryItem[]>([])
-  const [editState, setEditState] = useState<EditState>({ id: null, type: null, value: "" })
+  const [date, setDate] = useState<Date>(new Date("2025-08-06"));
+  const [takeProfitInput, setTakeProfitInput] = useState("");
+  const [stopLossInput, setStopLossInput] = useState("");
+  const [takeProfitHistory, setTakeProfitHistory] = useState<HistoryItem[]>([]);
+  const [stopLossHistory, setStopLossHistory] = useState<HistoryItem[]>([]);
+  const [editState, setEditState] = useState<EditState>({
+    id: null,
+    type: null,
+    value: "",
+  });
 
   // Load data from localStorage on component mount
   useEffect(() => {
-    const savedData = localStorage.getItem('tradingData')
+    const savedData = localStorage.getItem("tradingData");
     if (savedData) {
       try {
-        const parsed = JSON.parse(savedData)
-        setDate(new Date(parsed.date))
-        setTakeProfitHistory(parsed.takeProfitHistory.map((item: any) => ({
-          ...item,
-          timestamp: new Date(item.timestamp)
-        })))
-        setStopLossHistory(parsed.stopLossHistory.map((item: any) => ({
-          ...item,
-          timestamp: new Date(item.timestamp)
-        })))
+        const parsed = JSON.parse(savedData);
+        setDate(new Date(parsed.date));
+        setTakeProfitHistory(
+          parsed.takeProfitHistory.map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp),
+          }))
+        );
+        setStopLossHistory(
+          parsed.stopLossHistory.map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp),
+          }))
+        );
       } catch (error) {
-        console.error('Error loading data from localStorage:', error)
+        console.error("Error loading data from localStorage:", error);
       }
     }
-  }, [])
+  }, []);
 
   // Save data to localStorage whenever state changes
   useEffect(() => {
     const dataToSave = {
       date: date.toISOString(),
       takeProfitHistory,
-      stopLossHistory
-    }
-    localStorage.setItem('tradingData', JSON.stringify(dataToSave))
-  }, [date, takeProfitHistory, stopLossHistory])
+      stopLossHistory,
+    };
+    localStorage.setItem("tradingData", JSON.stringify(dataToSave));
+  }, [date, takeProfitHistory, stopLossHistory]);
 
-  const takeProfitTotal = takeProfitHistory.reduce((sum, item) => sum + item.percentage, 0)
-  const stopLossTotal = stopLossHistory.reduce((sum, item) => sum + item.percentage, 0)
-  const profitTotal = takeProfitTotal - stopLossTotal
+  const takeProfitTotal = takeProfitHistory.reduce(
+    (sum, item) => sum + item.percentage,
+    0
+  );
+  const stopLossTotal = stopLossHistory.reduce(
+    (sum, item) => sum + item.percentage,
+    0
+  );
+  const profitTotal = takeProfitTotal - stopLossTotal;
 
   const addTakeProfit = () => {
-    const percentage = parseFloat(takeProfitInput)
+    const percentage = parseFloat(takeProfitInput);
     if (!isNaN(percentage) && percentage > 0) {
       const newItem: HistoryItem = {
         id: Date.now().toString(),
         percentage,
-        timestamp: new Date()
-      }
-      setTakeProfitHistory(prev => [...prev, newItem])
-      setTakeProfitInput("")
+        timestamp: new Date(),
+      };
+      setTakeProfitHistory((prev) => [...prev, newItem]);
+      setTakeProfitInput("");
     }
-  }
+  };
 
   const addStopLoss = () => {
-    const percentage = parseFloat(stopLossInput)
+    const percentage = parseFloat(stopLossInput);
     if (!isNaN(percentage) && percentage > 0) {
       const newItem: HistoryItem = {
         id: Date.now().toString(),
         percentage,
-        timestamp: new Date()
-      }
-      setStopLossHistory(prev => [...prev, newItem])
-      setStopLossInput("")
+        timestamp: new Date(),
+      };
+      setStopLossHistory((prev) => [...prev, newItem]);
+      setStopLossInput("");
     }
-  }
+  };
 
-  const removeHistoryItem = (type: 'takeProfit' | 'stopLoss', id: string) => {
-    if (type === 'takeProfit') {
-      setTakeProfitHistory(prev => prev.filter(item => item.id !== id))
+  const removeHistoryItem = (type: "takeProfit" | "stopLoss", id: string) => {
+    if (type === "takeProfit") {
+      setTakeProfitHistory((prev) => prev.filter((item) => item.id !== id));
     } else {
-      setStopLossHistory(prev => prev.filter(item => item.id !== id))
+      setStopLossHistory((prev) => prev.filter((item) => item.id !== id));
     }
-  }
+  };
 
-  const clearHistory = (type: 'takeProfit' | 'stopLoss') => {
-    if (type === 'takeProfit') {
-      setTakeProfitHistory([])
+  const clearHistory = (type: "takeProfit" | "stopLoss") => {
+    if (type === "takeProfit") {
+      setTakeProfitHistory([]);
     } else {
-      setStopLossHistory([])
+      setStopLossHistory([]);
     }
-  }
+  };
 
-  const startEdit = (type: 'takeProfit' | 'stopLoss', id: string, currentValue: number) => {
+  const startEdit = (
+    type: "takeProfit" | "stopLoss",
+    id: string,
+    currentValue: number
+  ) => {
     setEditState({
       id,
       type,
-      value: currentValue.toString()
-    })
-  }
+      value: currentValue.toString(),
+    });
+  };
 
   const saveEdit = () => {
     if (editState.id && editState.type) {
-      const newValue = parseFloat(editState.value)
+      const newValue = parseFloat(editState.value);
       if (!isNaN(newValue) && newValue > 0) {
-        if (editState.type === 'takeProfit') {
-          setTakeProfitHistory(prev => 
-            prev.map(item => 
-              item.id === editState.id 
+        if (editState.type === "takeProfit") {
+          setTakeProfitHistory((prev) =>
+            prev.map((item) =>
+              item.id === editState.id
                 ? { ...item, percentage: newValue }
                 : item
             )
-          )
+          );
         } else {
-          setStopLossHistory(prev => 
-            prev.map(item => 
-              item.id === editState.id 
+          setStopLossHistory((prev) =>
+            prev.map((item) =>
+              item.id === editState.id
                 ? { ...item, percentage: newValue }
                 : item
             )
-          )
+          );
         }
       }
     }
-    cancelEdit()
-  }
+    cancelEdit();
+  };
 
   const cancelEdit = () => {
-    setEditState({ id: null, type: null, value: "" })
-  }
+    setEditState({ id: null, type: null, value: "" });
+  };
 
   const clearAllData = () => {
-    if (confirm('¿Estás seguro de que quieres eliminar todos los datos? Esta acción no se puede deshacer.')) {
-      localStorage.removeItem('tradingData')
-      setTakeProfitHistory([])
-      setStopLossHistory([])
-      setDate(new Date("2025-08-06"))
+    if (
+      confirm(
+        "¿Estás seguro de que quieres eliminar todos los datos? Esta acción no se puede deshacer."
+      )
+    ) {
+      localStorage.removeItem("tradingData");
+      setTakeProfitHistory([]);
+      setStopLossHistory([]);
+      setDate(new Date("2025-08-06"));
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
@@ -160,16 +194,21 @@ export default function TradingInterface() {
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">
-            Configuración de Trading
+            Jornada de Trading
           </h1>
-          
+
           {/* Date Picker */}
           <div className="flex justify-center">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+                <Button
+                  variant="outline"
+                  className="w-[200px] justify-start text-left font-normal"
+                >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "dd/MM/yyyy", { locale: es }) : "Seleccionar fecha"}
+                  {date
+                    ? format(date, "dd/MM/yyyy", { locale: es })
+                    : "Seleccionar fecha"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -193,7 +232,11 @@ export default function TradingInterface() {
                   <TrendingDown className="h-5 w-5 text-red-600" />
                 )}
                 <span className="text-lg font-semibold">Profit Total:</span>
-                <span className={`text-xl font-bold ${profitTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <span
+                  className={`text-xl font-bold ${
+                    profitTotal >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
                   {profitTotal.toFixed(2)}%
                 </span>
               </div>
@@ -221,7 +264,7 @@ export default function TradingInterface() {
                   min="0"
                   step="0.01"
                 />
-                <Button 
+                <Button
                   onClick={addTakeProfit}
                   className="bg-blue-600 hover:bg-blue-700"
                   disabled={!takeProfitInput}
@@ -240,12 +283,14 @@ export default function TradingInterface() {
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-medium text-slate-700 dark:text-slate-300">Historial:</h3>
+                  <h3 className="font-medium text-slate-700 dark:text-slate-300">
+                    Historial:
+                  </h3>
                   {takeProfitHistory.length > 0 && (
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
-                      onClick={() => clearHistory('takeProfit')}
+                      onClick={() => clearHistory("takeProfit")}
                       className="text-xs"
                     >
                       Limpiar
@@ -259,25 +304,40 @@ export default function TradingInterface() {
                     </p>
                   ) : (
                     takeProfitHistory.map((item) => (
-                      <div 
+                      <div
                         key={item.id}
                         className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-800 rounded text-sm"
                       >
-                        {editState.id === item.id && editState.type === 'takeProfit' ? (
+                        {editState.id === item.id &&
+                        editState.type === "takeProfit" ? (
                           <div className="flex items-center space-x-2 flex-1">
                             <Input
                               type="number"
                               value={editState.value}
-                              onChange={(e) => setEditState(prev => ({ ...prev, value: e.target.value }))}
+                              onChange={(e) =>
+                                setEditState((prev) => ({
+                                  ...prev,
+                                  value: e.target.value,
+                                }))
+                              }
                               className="w-20 h-8 text-sm"
                               min="0"
                               step="0.01"
                               autoFocus
                             />
-                            <Button size="sm" onClick={saveEdit} className="h-6 w-6 p-0">
+                            <Button
+                              size="sm"
+                              onClick={saveEdit}
+                              className="h-6 w-6 p-0"
+                            >
                               <Save className="h-3 w-3" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-6 w-6 p-0">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={cancelEdit}
+                              className="h-6 w-6 p-0"
+                            >
                               <X className="h-3 w-3" />
                             </Button>
                           </div>
@@ -293,7 +353,13 @@ export default function TradingInterface() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => startEdit('takeProfit', item.id, item.percentage)}
+                                onClick={() =>
+                                  startEdit(
+                                    "takeProfit",
+                                    item.id,
+                                    item.percentage
+                                  )
+                                }
                                 className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700"
                               >
                                 <Edit className="h-3 w-3" />
@@ -301,7 +367,9 @@ export default function TradingInterface() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => removeHistoryItem('takeProfit', item.id)}
+                                onClick={() =>
+                                  removeHistoryItem("takeProfit", item.id)
+                                }
                                 className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                               >
                                 ×
@@ -336,7 +404,7 @@ export default function TradingInterface() {
                   min="0"
                   step="0.01"
                 />
-                <Button 
+                <Button
                   onClick={addStopLoss}
                   className="bg-blue-600 hover:bg-blue-700"
                   disabled={!stopLossInput}
@@ -355,12 +423,14 @@ export default function TradingInterface() {
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-medium text-slate-700 dark:text-slate-300">Historial:</h3>
+                  <h3 className="font-medium text-slate-700 dark:text-slate-300">
+                    Historial:
+                  </h3>
                   {stopLossHistory.length > 0 && (
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
-                      onClick={() => clearHistory('stopLoss')}
+                      onClick={() => clearHistory("stopLoss")}
                       className="text-xs"
                     >
                       Limpiar
@@ -374,25 +444,40 @@ export default function TradingInterface() {
                     </p>
                   ) : (
                     stopLossHistory.map((item) => (
-                      <div 
+                      <div
                         key={item.id}
                         className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-800 rounded text-sm"
                       >
-                        {editState.id === item.id && editState.type === 'stopLoss' ? (
+                        {editState.id === item.id &&
+                        editState.type === "stopLoss" ? (
                           <div className="flex items-center space-x-2 flex-1">
                             <Input
                               type="number"
                               value={editState.value}
-                              onChange={(e) => setEditState(prev => ({ ...prev, value: e.target.value }))}
+                              onChange={(e) =>
+                                setEditState((prev) => ({
+                                  ...prev,
+                                  value: e.target.value,
+                                }))
+                              }
                               className="w-20 h-8 text-sm"
                               min="0"
                               step="0.01"
                               autoFocus
                             />
-                            <Button size="sm" onClick={saveEdit} className="h-6 w-6 p-0">
+                            <Button
+                              size="sm"
+                              onClick={saveEdit}
+                              className="h-6 w-6 p-0"
+                            >
                               <Save className="h-3 w-3" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-6 w-6 p-0">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={cancelEdit}
+                              className="h-6 w-6 p-0"
+                            >
                               <X className="h-3 w-3" />
                             </Button>
                           </div>
@@ -408,7 +493,13 @@ export default function TradingInterface() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => startEdit('stopLoss', item.id, item.percentage)}
+                                onClick={() =>
+                                  startEdit(
+                                    "stopLoss",
+                                    item.id,
+                                    item.percentage
+                                  )
+                                }
                                 className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700"
                               >
                                 <Edit className="h-3 w-3" />
@@ -416,7 +507,9 @@ export default function TradingInterface() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => removeHistoryItem('stopLoss', item.id)}
+                                onClick={() =>
+                                  removeHistoryItem("stopLoss", item.id)
+                                }
                                 className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                               >
                                 ×
@@ -442,27 +535,38 @@ export default function TradingInterface() {
               </h3>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <p className="text-slate-600 dark:text-slate-400">Take Profit</p>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Take Profit
+                  </p>
                   <p className="font-bold text-green-600 dark:text-green-400">
                     +{takeProfitTotal.toFixed(2)}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-slate-600 dark:text-slate-400">Stop Loss</p>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Stop Loss
+                  </p>
                   <p className="font-bold text-red-600 dark:text-red-400">
                     -{stopLossTotal.toFixed(2)}%
                   </p>
                 </div>
                 <div>
                   <p className="text-slate-600 dark:text-slate-400">Neto</p>
-                  <p className={`font-bold ${profitTotal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {profitTotal >= 0 ? '+' : ''}{profitTotal.toFixed(2)}%
+                  <p
+                    className={`font-bold ${
+                      profitTotal >= 0
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {profitTotal >= 0 ? "+" : ""}
+                    {profitTotal.toFixed(2)}%
                   </p>
                 </div>
               </div>
               {(takeProfitHistory.length > 0 || stopLossHistory.length > 0) && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={clearAllData}
                   className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
@@ -475,5 +579,5 @@ export default function TradingInterface() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
